@@ -53,7 +53,56 @@
   CNT 置零； 触发溢出更新中断； 状态寄存器置位，TIM-SR.UIF = 1(更新中断标志位 = 1)；
 
                                           000 实验 000
-                                          
+
+// 1. 头文件包含
+#include "main.h"
+// 2. 全局变量 / 宏定义
+// 3. 函数声明
+void SystemClock_Config(void);
+                               //////////////////////////////////////////////////////////////////////////////////////// 定义更新中断回调函数:
+                                                     stm32f1xx-it.c
+                                                           ↓
+                                              HAL_TIM_IRQHandler(&htim6);
+                                                           ↓
+                                  if ((itflag & (TIM_FLAG_UPDATE)) == (TIM_FLAG_UPDATE));            (找到判断更新中断语句，语句含义：检测更新中断标志位是否置1)
+                                                           ↓
+                                            HAL_TIM_PeriodElapsedCallback(htim);                    （找到执行更新中断语句，ctrl进去）
+                                                           ↓
+                              _weak void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)      (更新中断回调函数弱定义)
+                               ///////////////////////////////////////////////////////////////////////////////////////////////////// 在main.c中重定义回调函数，注意：！！要定义在主函数main外面  
+                                 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+                                  {
+	                                  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+                                  }
+                               /////////////////////////////////////////////////////////////////////
+// 4. 主函数！程序入口
+int main(void)
+{
+    // 初始化
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    MX_TIM6_Init();        ///////////////基本定时器初始化
+                                    /////////////////////////////////////////////////////////////////////
+                                    HAL_TIM_Base_Start_IT(&htim6);   
+                                    注：
+                                    1.这是定时开启语句，MX里面配置好，但是并不代表就一直开始数数了，这就是开始数数的开关
+                                    2.尾缀 _IT 的意思是开启计数的同时并开启更新中断，不带就仅仅开启计数功能
+                                    /////////////////////////////////////////////////////////////////////
+    while (1)
+    {
+    }
+}
+// 5. 系统配置函数（时钟、初始化）
+void SystemClock_Config(void){}
+// 6. 错误处理函数
+void Error_Handler(void){}
+
+注：总的来说，BTIM 的使用需要不仅仅需要在MX配置好
+    还需要你用 HAL_TIM_Base_Start_IT(&htimx);来激活它
+    单纯想开始计数就 HAL_TIM_Base_Start(&htimx);
+    想计数并且使用更新触发中断，那就用 HAL_TIM_Base_Start_IT(&htimx);
                
                
   

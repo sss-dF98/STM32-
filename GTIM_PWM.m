@@ -105,7 +105,100 @@
              注：PWM波的占空比设置，核心就是CCR值得设置，也就是Pulse值得设置，上述：ARR=499,Pulse=250；也就是初始占空比50左右，向上计数。             
                  当CNT<CCRx,IO输出无效电平；当CNT>=CCRx时，IO输出有效电平 。
 
-            3.代码
+            3.代码          
+                  // 1. 头文件包含
+                  #include "main.h"
+                  // 2. 全局变量 / 宏定义
+                  // 3. 函数声明
+                  void SystemClock_Config(void);
+
+                  // 4. 主函数！程序入口
+                  int main(void)
+                  {
+                                                                ////////////////////////////////////////////////////////////
+                                                                uint8_t  dir = 1;
+                                                                uint16_t val =250;
+                                                                ////////////////////////////////////////////////////////////
+                      // 初始化
+                      HAL_Init();
+                      SystemClock_Config();
+                      MX_GPIO_Init();
+                      MX_USART1_UART_Init();
+                                                                ////////////////////////////////////////////////////////////
+                                                                HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+                                                                ////////////////////////////////////////////////////////////
+                      while (1)
+                      // 死循环！程序一直在这里跑
+                      {
+                                                                ////////////////////////////////////////////////////////////
+                                                                 if(dir==1)
+	                                                                 {
+	                                                               	  val++;
+	                                                                 }
+	                                                                 else
+	                                                                 {
+	                                                               	  val--;
+	                                                                 }
+                                                                   
+                                                               	  if(val>=300)
+	                                                                 {
+	                                                               	  dir = 0;
+	                                                                 }
+	                                                                 if(val==0)
+	                                                                 {
+	                                                               	  dir =1;
+                                                               	  }
+                                                               	  HAL_Delay(10);
+                                                                  
+                                                               	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2,val);
+                                                                ////////////////////////////////////////////////////////////
+                      }
+                  }
+                  // 5. 系统配置函数（时钟、初始化）
+                  void SystemClock_Config(void){}
+                  // 6. 错误处理函数
+                  void Error_Handler(void){}
+
+                  核心代码注：
+                             HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+                             作用：开启 TIM3 通道 2 的 PWM 波形输出（让引脚真正出波）。
+                             入口参数去TIM.c复制
+
+                             __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2,val);
+                             作用：动态修改 PWM 占空比，就是改 CCR 值，val 越大，占空比越高
+
+
+                             代码逻辑：
+                                     1. HAL_TIM_PWM_Start();       启动PWM输出
+                                     2. __HAL_TIM_SET_COMPARE();   动态修改CCRx值，调节占空比
+                                     3. 实现CCRx得动态修改：
+                                                            __HAL_TIM_SET_COMPARE(); 函数的第三个入口参数值是Pulse的值，也就是CCRx的值
+                                                            为让其一直变化，创建变量 val 作为函数入口参数
+                                                             uint8_t  dir = 1;
+                                                             uint16_t val =250;       //代表的CCRx为16位寄存器值
+
+                                                            控制变量变化代码：    
+                                                            if(dir==1)                 //初始变量为真
+	                                                                 {
+	                                                               	  val++;             //初始为真时执行，val递增
+	                                                                 }
+	                                                                 else
+	                                                                 {
+	                                                               	  val--;              //为假时递减
+	                                                                 }
+                                                                   
+                                                               	  if(val>=300)          //当递增到300时（300-500亮度变化不明显，所以设置300）
+	                                                                 {
+	                                                               	  dir = 0;            //改变初始条件，让其执行为假时语句 ：递减
+	                                                                 }
+	                                                                 if(val==0)           //递减到0时，再次改变初始条件，让其为真
+	                                                                 {
+	                                                               	  dir =1;
+                                                               	  }
+                                                               	  HAL_Delay(10);       //轮询变化太快了，为了明显观察呼吸灯效果，设置延时降速
+                                                                  
+
+                                                            
               
               
               

@@ -110,12 +110,15 @@
                        {
                        	oled_wr_byte(0xB0,OLED_CMD);       // 0xB0 → 选择Page0（第0~7行像素）
                        	oled_wr_byte(0x00,OLED_CMD);       // 0x00 → 列地址低4位=0x0
-                       	oled_wr_byte(0x10,OLED_CMD);       // 0x10 → 列地址高4位=0x1
+                       	oled_wr_byte(0x10,OLED_CMD);       // 0x10 → 列地址高4位=0x0
                                                               组合结果：定位到第0页、第0列
                        	oled_wr_byte(0xFF,OLED_DATA);      // 0xFF（二进制11111111）表示该列的8个像素全部点亮
                                                               数据写入后，列地址自动+1，为连续写入做准备
                        }
-                注：OLED_CMD与OLED_DATA定义在oled.h中：
+			    注1：但对于方便计算列地址来说：最终地址 = 0xA + 16 × 0xB
+                                                      A = 低 4 位（命令：0x00 + A）
+                                                      B = 高 4 位（命令：0x10 + B）   
+                注2：OLED_CMD与OLED_DATA定义在oled.h中：
                                                       #define OLED_CMD            0
                                                       #define OLED_DATA           1
                                                       代表RS位的高低电平（命令/数据），为了提升代码可读性做了宏定义

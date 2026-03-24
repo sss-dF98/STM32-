@@ -123,6 +123,135 @@
                                                       #define OLED_DATA           1
                                                       代表RS位的高低电平（命令/数据），为了提升代码可读性做了宏定义
    04.点亮OLED的一个点
+                     基本步骤：
+					   1. 初始化I2C
+                                   I2C_Init()；                     // 如果是8080并口的话就换成配置GPIO + 写时序
+                       2. OLED初始化（发一堆固定指令）
+                                   OLED_Init();                     // OLED芯片数据手册里面直接复制
+                       3. 清屏
+                                   OLED_Clear();                    // 清屏函数，自己写的
+                       4. 设置坐标
+                                   OLED_SetPos(0, 0);               // 设置显示位置，第0列，第0页
+                       5. 显示字符串
+                                   OLED_ShowString("Hello OLED");    // 输出设置
+			  01.清屏函数（其实就是一个常用的遍历，定义在oled.c）
+			           uint8_t g_oled_gram[128][8];                  // 定义显存：128列 × 8页
+					   void oled_clear(void)
+					   {
+					     // ====== 第一段：把显存全部填 0 ======
+					   	 uint8_t i,j;
+					   	 for(i=0;i<8;i++)
+					   	 {
+					   	 	for(j=0;j<128;j++)
+					   	 	{
+					   			g_oled_gram[i][j]=0x00;
+					   		}
+					   	 }
+						 // ====== 第二段：把显存刷新到屏幕 ======
+					   	 for(i=0; i<8; i++)
+					   	 {
+						   	oled_wr_byte(0xB0+i,OLED_CMD);
+						   	oled_wr_byte(0x00,OLED_CMD);
+						   	oled_wr_byte(0x10,OLED_CMD);
+						       for(j=0;j<128;j++)
+					   		{
+						   		oled_wr_byte(g_oled_gram[i][j],OLED_DATA);
+					   		}
+					   	 }
+					   }
+				注：uint8_t g_oled_gram[128][8]; 是什么？
+                    这叫 OLED 显存（GRAM）
+                    作用：
+                         单片机内存里模拟一个屏幕
+                         要显示什么，先改这里
+                         改完再一次性刷新到屏幕
+				所以清屏函数可以优化为：1.修改显存 + 2.将显存刷新到屏幕上
+				优化：
+				     uint8_t g_oled_gram[128][8];
+				     void oled_refresh_gram(void)            //定义刷新函数
+					 {
+                         uint8_t g_oled_gram[128][8]; 
+                         for(i=0; i<8; i++)
+					   	 {
+						   	oled_wr_byte(0xB0+i,OLED_CMD);
+						   	oled_wr_byte(0x00,OLED_CMD);
+						   	oled_wr_byte(0x10,OLED_CMD);
+						       for(j=0;j<128;j++)
+					   		 {
+						   		oled_wr_byte(g_oled_gram[i][j],OLED_DATA);
+					   		 }
+					   	  }
+					  }  
+					  void oled_clear(void)                            //定义清屏函数，内部调用刷新函数
+					  {
+					     // ====== 第一段：把显存全部填 0 ======
+					   	 uint8_t i,j;
+					   	 for(i=0;i<8;i++)
+					   	 {
+					   	 	for(j=0;j<128;j++)
+					   	 	{
+					   			g_oled_gram[i][j]=0x00;
+					   		}
+					   	 }
+						 // ====== 第二段：调用刷新函数,将显存内容发送给oled ======
+					   	 void oled_refresh_gram()；
+					   }
+			02.实现画点函数
+			           void oled_draw_point(uint8_t x,uint8_t y,uint8_t dot)    // 画点函数  x：横坐标（0~127）y：纵坐标（0~63） dot：1 = 点亮，0 = 熄灭
+			           {
+			           	uint8_t page, bx, temp = 0;              // page：页（OLED 屏幕按 8 行一页划分）  bx：页内偏移位（0~7）  temp：位运算掩码
+			           	if(x > 127 || y > 63) return;            // x 超过 127 或 y 超过 63 直接退出，防止数组越界崩溃
+			           	page = y / 8;                            // OLED 屏幕 64 行，分为 8 行一页，共 8 页。y/8 → 算在第几页y
+			           	bx = y % 8;                              // %8 → 算在这一页的第几位
+			           	temp = 1 << bx;                          // 位运算生成掩码,如：bx=3 → 1<<3 = 0b00001000
+			           	if(dot==1)                               // dot=1 画亮点
+			           	{
+			           		g_oled_gram[x][page] |= temp;           // 与掩码temp进行 或运算置1（点亮）
+			           	}
+			           	else                                     // dot=0 画灭点
+			           	{
+			           		g_oled_gram[x][page] &= ~temp;          // 与掩码~temp进行 与运算清0（熄灭）
+			           	}                                        
+			           }
+					   注：g_oled_gram[x][page]不要把行列搞混了，x：横坐标代表第几列
+					                                           y：纵坐标代表第几行（第几页）
+		      03.main.c实现
+			           oled.c中，我们定义了有着 8页（64行），128列的数组变量作为oled显存  uint8_t g_oled_gram[128][8]; 
+					             定义了如下函数：
+								 void oled_data_out(uint8_t data)；                     //oled写数据函数--直接操作寄存器写数据
+								 void oled_wr_byte(uint8_t data,uint8_t cmd)；          //oled数据输出函数--内部调用上面的写数据函数，加了时序
+								 void oled_clear(void)；                                //oled清屏函数，内部调用了下面刷屏函数
+								 void oled_refresh_gram(void)；                         //oled刷屏函数
+								 void oled_draw_point(uint8_t x,uint8_t y,uint8_t dot)；//oled画点函数
+								 void oled_init(void)；                                 //oled初始化函数
+								  
+			           oled.h中，为了提升代码可读性，我们进行了如下宏定义：
+                                #define	OLED_RS(x)       x  ?  ......  :  ......
+                                #define OLED_RST(x)      x  ?  ......  :  ......
+                                #define OLED_RD(x)       x  ?  ......  :  ......
+                                #define OLED_WR(x)       x  ?  ......  :  ......
+                                #define OLED_CS(x)       x  ?  ......  :  ......
+                                #define OLED_CMD            0
+                                #define OLED_DATA           1
+								对main.c直接调用的函数进行了声明
+								void oled_init(void)；                                 //oled初始化函数
+								void oled_clear(void)；                                //oled清屏函数，内部调用了下面刷屏函数
+								void oled_refresh_gram(void)；                         //oled刷屏函数
+								void oled_draw_point(uint8_t x,uint8_t y,uint8_t dot)；//oled画点函数
+					  main.c中：
+					   
+
+
+
+
+
+
+
+
+
+
+
+   
 
                  
               

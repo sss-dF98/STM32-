@@ -238,7 +238,49 @@
 								void oled_clear(void)；                                //oled清屏函数，内部调用了下面刷屏函数
 								void oled_refresh_gram(void)；                         //oled刷屏函数
 								void oled_draw_point(uint8_t x,uint8_t y,uint8_t dot)；//oled画点函数
-					  main.c中：
+					  main.c中：				            
+                                // 1. 头文件包含
+                                #include "main.h"
+                                // 2. 全局变量 / 宏定义
+                                // 3. 函数声明
+                                void SystemClock_Config(void);
+
+                                // 4. 主函数！程序入口
+                                int main(void)
+                                {
+                                    // 初始化
+                                    HAL_Init();
+                                    SystemClock_Config();
+                                    MX_GPIO_Init();
+                                    MX_USART1_UART_Init();
+                                                              /////////////////////////////////////
+															  oled_init();                       //oled初始化
+															  oled_clear();                      //oled清屏
+															  oled_draw_point(128/2,64/2,1);     //oled画点函数，即将数据储存到显存数组
+															  oled_refresh_gram();               //刷屏函数，将现存数组内容刷新到oled上
+															                                     注：效果：32行，64列，点亮
+															  /////////////////////////////////////
+                                    while (1)
+                                    // 死循环！程序一直在这里跑
+                                    {
+                                                              /////////////////////////////////////
+															  如果不仅仅想点亮某具体点：
+															  for(uint8_t i=0;i<64;i++)
+															  {
+															    oled_clear();
+																oled_draw_point(2*i,i,1)
+																oled_refresh_gram();
+																HAL_Dwlay(10);
+																注：效果：一个小亮点一直斜向下移动
+															  }
+															  ///////////////////////////////////////
+                                    }
+                                }
+                                // 5. 系统配置函数（时钟、初始化）
+                                void SystemClock_Config(void){}
+                                // 6. 错误处理函数
+                                void Error_Handler(void){}
+
 					   
 
 
